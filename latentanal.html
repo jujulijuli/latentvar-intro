@@ -1,0 +1,42 @@
+<html>
+
+<body>
+<head>
+<script type="text/javascript"
+  src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</head>
+
+<h1><a name="intro">Introduction</a></h1>
+
+<h1><a name="missing">Models with Missing Data</a></h1>
+
+<p>Currently just some text from an email I wrote</p>
+
+I have commented on this to Stata before.  Missing data handling in and of itself is a subject of continued research and development theoretically speaking (let alone specific software implementations).  I do not believe there is complete consensus as to optimal approaches.  FIML only yields unbiased estimates *if* some rather stringent assumptions are true.
+
+You want fit indices for SEM models (which is itself a field of active research) *and* with missing data.  So what you want lies at the intersection of two active research fields, neither of which have completely agreed on best practices.  Stata tends to be conservative in what they implement, which is why I believe they have not implemented any fit indices for SEM with missing data.  Phil has emailed Stata before, and I have talked with them also.  It does not exist in the current version of Stata.  Perhaps they will implement the feature in some future version.  Phil would know better than I and perhaps he can suggest people to talk to at Stata.
+
+Now in terms of what can be done.  Let's start with the simplest: use listwise deletion.  You only model complete cases, and Stata will give you all the fit indices you want.  If you meet the assumption that the data is missing completely at random, your estimates will be unbiased estimates of the population you sampled from.  This is the easiest approach to take.
+
+Another, if more complex, route would be to use multiple imputation.  You can first use MI to create K complete datasets.  Then you can fit your SEM on each of these K datasets and finally combine the results.  Although this is possible, I do not expect it to be easy either programatically or statistically.  I doubt that Stata has implemented using the -sem- command with multiple imputation, which means you would have to manually program it (i.e., create K datasets, call -sem- on each dataset one at a time, collecting and storing the relevant results, then in a final step combine them).  In addition, I am not clear what the appropriate way to combine fit indices would be, so that would require probing the statistical literature.
+
+Another complex, but perhaps slightly less complex than SEM + MI, option is to think about the purpose of fit indices and make some assumptions.  Fit indices come in two general flavours.
+
+The first represent some sort of index of missfit of the model estimated covariance matrix from the actual covariance matrix.  These include residual based indices, such as RMSEA and SRMR.  They measure in some sense, how well or poorly your model reproduces the observed covariance matrix.
+
+The second are relative fit indices.  These construct bounds on model fit.  A null model is defined (there are multiple possibilities) which is the reference "worst fitting model" and a saturated model is defined (this is typically more straightforward) which is the reference "best fitting model".  Now, you can fit your actual model, and you can see whether it is relatively closer to the "worst fitting model" or the "best fitting model".  Bijection lets us move from the Real set to [0,1] where the worst fitting model is 0 and the best fitting model is 1, and your model falls in between.  One hopes that the model of interest falls closer to 1.  Examples of these fit indices are CFI, among numerous others that perform various corrections or adjustments (penalties for number of parameters etc.).
+
+This is all well and good, but now we are going to throw a wrench in things.  Due to missing data, we do not actually have an observed covariance matrix.  You need the "true" population covariance matrix or at least an unbiased estimate of it in order to hope to calculate residuals between your model and the "truth".  When there is no missing data, the sample covariance matrix is an unbiased estimate of the true population covariance matrix, and this fact underlies all of our tests and fit indices.  When there is missing data, you can use FIML, but that yields an unbiased estimate only when the data are missing completely at random (MCAR) or missing at random (MAR) conditional on the variables used in your model.  Otherwise, even FIML will yield biased estimates, and then when comparing your model, you are comparing it against a biased estimate.  Depending on the degree of bias, this is an exercise in futility.  However, suppose the assumption holds and your data is MAR.  Then fitting a saturated model on your data with FIML, the model expected covariance matrix should be an unbiased estimate of the population covariance matrix.  This can then be used to compare with your model to calculate residuals, etc.
+
+So, where does that leave us?  If you are willing to assume the FIML estimates for a saturated and null model are unbiased estimates of true saturated and null models from the population, then you can use the estimates from those as the basis for your fit indices.  Because Stata does not implement this, you will have to calculate the fit indices yourself.  This is more of a nuissance than it is difficult.  Most fit indices have fairly basic formulae.  In fact, I have written Stata code (well Mata code) to calculate the SRMR for SEM with missing data using FIML.  As I mentioned, this makes some rather strong assumptions, but it is one approach forward and at least for SRMR, perhaps the easiest as I have already written the code.
+
+You can find the code and an example here: http://www.ats.ucla.edu/stat/stata/code/srmr_mata.htm  or you are welcome to come into our walkin consulting office and we can help you with it.  There are two steps.  First you need to fit a saturated model.  That is a model with 0 degrees of freedom that perfectly reproduces the data.  The model reproduced covariance matrix from the saturated model is extracted and stored.  Next, fit the model you are actually interested in and again extract and store the model reproduced covariance matrix.
+
+Finally, you can use the Mata function I wrote that is on that page, and give it the names of the two matrices and it will compute the SRMR for you.
+
+I realize that this is all rather complicated; however, that is the nature of SEM with missing data.  There is no simple consensus or "right answer" that I can give you.
+
+If you want a simple software implementation, I know that Mplus will report some fit indices for SEM with missing data.  As far as I know, in many cases, Mplus uses an approach similar to the one I mentioned assuming the FIML estimates from a saturated and null model represent unbiased estimates of the true saturated and null models.  If you are at UCLA and you come in, we can help you setup your model in Mplus, if you want.
+
+</html>
